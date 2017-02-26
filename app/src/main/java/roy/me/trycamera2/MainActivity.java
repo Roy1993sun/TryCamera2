@@ -11,11 +11,14 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Toast;
+
+import java.util.Comparator;
 
 
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
@@ -50,13 +53,24 @@ public class MainActivity extends AppCompatActivity implements TextureView.Surfa
     private Handler mBackgroundHandler;
 
     private static SparseIntArray ORIENTATIONS = new SparseIntArray();
+
     static {
-        ORIENTATIONS.append(Surface.ROTATION_0,0);
-        ORIENTATIONS.append(Surface.ROTATION_90,90);
-        ORIENTATIONS.append(Surface.ROTATION_180,180);
-        ORIENTATIONS.append(Surface.ROTATION_270,270);
+        ORIENTATIONS.append(Surface.ROTATION_0, 0);
+        ORIENTATIONS.append(Surface.ROTATION_90, 90);
+        ORIENTATIONS.append(Surface.ROTATION_180, 180);
+        ORIENTATIONS.append(Surface.ROTATION_270, 270);
 
     }
+
+    private static class CompareSizeByArea implements Comparator<Size> {
+
+        @Override
+        public int compare(Size lhs, Size rhs) {
+            return Long.signum((long) lhs.getWidth() * lhs.getHeight() /
+                    (long) rhs.getWidth() * rhs.getHeight());
+        }
+    }
+
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -132,6 +146,17 @@ public class MainActivity extends AppCompatActivity implements TextureView.Surfa
                         CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) {
                     continue;
                 }
+                int deviceRotation = getWindowManager().getDefaultDisplay().getRotation();
+                int totalRotation = sensorToDeviceRotation(cameraCharacteristics, deviceRotation);
+                boolean swapRotation = totalRotation == 90 || totalRotation == 270;
+                int rotateWidth = width;
+                int rotateHeight = height;
+                if (swapRotation) {
+                    rotateHeight = width;
+                    rotateWidth = height;
+                }
+
+
                 mCameraId = cameraId;
                 return;
             }
@@ -147,6 +172,7 @@ public class MainActivity extends AppCompatActivity implements TextureView.Surfa
             mCameraDevice = null;
         }
     }
+
     private void startBackgroundThread() {
         mBackgroundHandlerThread = new HandlerThread("trycamera2");
         mBackgroundHandlerThread.start();
@@ -163,5 +189,10 @@ public class MainActivity extends AppCompatActivity implements TextureView.Surfa
             e.printStackTrace();
         }
     }
-    // TODO: 2017/2/18 需要一个方法来传递sensor
+    private static int sensorToDeviceRotation(CameraCharacteristics cameraCharacteristics, int devicesOritation) {
+        int sensorOritation = cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+        devicesOritation = ORIENTATIONS.get(devicesOritation);
+        return (sensorOritation + devicesOritation + 360) % 360;
+    }
+    // TODO: 17-2-26 need a method to choose Size
 }
